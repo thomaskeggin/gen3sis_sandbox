@@ -852,7 +852,7 @@ ggplot(plot_me) +
 
 We can also manipulate the landscapes and cell metrics to plot out
 spatial patterns - let’s have a look at spatial patterns of species
-richness at particular time steps through time.
+richness at particular points in our simulation’s history.
 
 ``` r
 target_step <-
