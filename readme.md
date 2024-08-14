@@ -241,12 +241,10 @@ contents here, section by section.
     3.  Evolution
     4.  Ecology
 
-Let’s start with a print out of a configuration file (.R script), then
-work our way through each section.
-
 ### General settings
 
-There are some general variables across the simulation:
+Before setting the simulation functions, we can set up some general
+variables for the simulation.
 
 - **random_seed**: set the seed to control for stochastic functions
 
@@ -346,21 +344,85 @@ the simulation.
 > object is just a nested list (we will visualise it below).
 
 We will keep our initialisation as simple as possible without being (I
-hope) too boring. Let’s start with two imaginary species: a shallow
-water specialist in the Atlantic (*Pisces atlanticus*), and a
-depth-generalist in the Pacific (*Pisces pacificus)*. To make it
-interesting, we can make the Atlantic depth-specialist a
-temperature-generalist, and the Pacific depth-generalist a
-temperature-specialist.
+hope) too boring. Let’s start with two imaginary species: one in the
+Atlantic (*Pisces atlanticus*), and one the Pacific (*Pisces
+pacificus)*. To make it interesting, let’s make the Atlantic species a
+temperature generalist, and a depth specialist, and *vice versa* for the
+Pacific species.
 
 | species           | temperature | depth      |
 |:------------------|:------------|:-----------|
 | Pisces atlanticus | generalist  | specialist |
 | Pisces pacificus  | specialist  | generalist |
 
-To make things easier, we are going to use the
-`gen3sis::create_species()` function to generate the two species. I know
-this is confusing - scroll down for clarification!
+Before we get into the function, it might be helpful to have a look at
+an existing species object - the thing we are trying to create!
+
+``` r
+species_object <-
+  readRDS("./output/configuration_file/species/species_t_47.rds")
+
+str(species_object,
+    max.level = 2)
+```
+
+    List of 2
+     $ :List of 5
+      ..$ id        : chr "1"
+      ..$ abundance : Named num [1:5] 0.137 0.737 0.997 0.269 0.105
+      .. ..- attr(*, "names")= chr [1:5] "368" "413" "459" "548" ...
+      ..$ traits    : num [1:5, 1:4] 18 18 18 18.1 17.9 ...
+      .. ..- attr(*, "dimnames")=List of 2
+      ..$ divergence:List of 2
+      ..$ lineage   : chr "Pisces_atlanticus"
+      ..- attr(*, "class")= chr "gen3sis_species"
+     $ :List of 5
+      ..$ id        : chr "2"
+      ..$ abundance : Named num [1:42] 0.191 0.167 0.832 0.624 0.699 ...
+      .. ..- attr(*, "names")= chr [1:42] "1021" "1022" "1069" "1070" ...
+      ..$ traits    : num [1:42, 1:4] 21 21 21 21 21 ...
+      .. ..- attr(*, "dimnames")=List of 2
+      ..$ divergence:List of 2
+      ..$ lineage   : chr "Pisces_pacificus"
+      ..- attr(*, "class")= chr "gen3sis_species"
+
+As we can see, the species object is a nested list containing a sub-list
+for each individual species in the simulation (extinct species will
+remain in the overall species object, but with null abundance values,
+etc.). For each species we have the following information:
+
+- **id** - species ID (new species will be assigned new IDs in serial
+  automatically)
+- **abundance** - vector of abundances in occupied cells
+- **traits** - matrix of traits for each occupied cell
+- **divergence** - list containing two compression objects for the
+  cell-to-cell divergence values between occupied cells
+- ***lineage*** - this is a bonus variable I added just in this instance
+  to tag our initial species! This does not usually exist and won’t be
+  used in the simulation.
+
+Whilst we are here, let’s also have a look at one of the trait matrices.
+
+``` r
+knitr::kable(head(species_object[[1]]$traits))
+```
+
+|     | thermal_optimum | thermal_standard_deviation | depth_limit | dispersal |
+|:----|----------------:|---------------------------:|------------:|----------:|
+| 368 |        18.03625 |                        0.3 |        -200 |        NA |
+| 413 |        17.97982 |                        0.3 |        -200 |        NA |
+| 459 |        17.99980 |                        0.3 |        -200 |        NA |
+| 548 |        18.05142 |                        0.3 |        -200 |        NA |
+| 556 |        17.91502 |                        0.3 |        -200 |        NA |
+
+We can see that there is a column for each trait we specified in the
+[general settings](#general-settings), plus a dispersal trait that gets
+added by default. Don’t worry about the dispersal trait this time, we
+won’t be using it!
+
+Each sub-list for the individual species is a handful. To make things
+easier, we can use the `gen3sis::create_species()` function to generate
+each species sub-list.
 
 ``` r
 # Initialisation ---------------------------------------------------------------
@@ -391,19 +453,19 @@ create_ancestor_species <- function(landscape, config) {
   # Remember, the species object is just a list!
   species_object <- list()
   
-  # create the Atlantic species-----------------------------
+  # create the Atlantic species -----------------------------
   species_object[[1]] <-
     gen3sis::create_species(initial_cells = Pa_start_cells,
                             config = config)
   
-  # generate mean thermal niche and standard deviation
+  # assign the mean thermal niche and standard deviation
   species_object[[1]]$traits[,"thermal_optimum"] <-
     18
   
   species_object[[1]]$traits[,"thermal_standard_deviation"] <-
     0.3
   
-  # depth trait
+  # assign the minimum depth tolerance
   species_object[[1]]$traits[ , "depth_limit"]   <-
     -200
   
@@ -416,14 +478,14 @@ create_ancestor_species <- function(landscape, config) {
     gen3sis::create_species(initial_cells = Pp_start_cells,
                             config = config)
   
-  # generate mean thermal niche and standard deviation
+  # assign the mean thermal niche and standard deviation
   species_object[[2]]$traits[,"thermal_optimum"] <-
     21
   
   species_object[[2]]$traits[,"thermal_standard_deviation"] <-
     0.1
   
-  # depth trait
+  # assign the minimum depth tolerance
   species_object[[2]]$traits[ , "depth_limit"]   <-
     -10000
   
@@ -683,7 +745,7 @@ ggplot(plot_me) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
 
-![](readme_files/figure-commonmark/unnamed-chunk-17-1.png)
+![](readme_files/figure-commonmark/unnamed-chunk-19-1.png)
 
 ### Species richness
 
@@ -721,7 +783,7 @@ ggplot(plot_me) +
   xlab("")+ylab("")
 ```
 
-![](readme_files/figure-commonmark/unnamed-chunk-18-1.png)
+![](readme_files/figure-commonmark/unnamed-chunk-20-1.png)
 
 ### Phylogeny
 
@@ -736,7 +798,7 @@ plot.phylo(phylogeny,
            show.tip.label = FALSE)
 ```
 
-![](readme_files/figure-commonmark/unnamed-chunk-19-1.png)
+![](readme_files/figure-commonmark/unnamed-chunk-21-1.png)
 
 # References
 

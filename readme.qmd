@@ -13,6 +13,7 @@ library(raster)
 library(igraph)
 library(ggraph)
 library(ape)
+library(ggrepel)
 ```
 
 This repository aims to serve as a data and code package for getting started with gen3sis (@hagen2021). There are other resources available online, so please make sure to have a look around!
@@ -25,55 +26,31 @@ This repository aims to serve as a data and code package for getting started wit
 
 For this tutorial, we will use some modified gen3sis data and code for the marine environment, taken from @keggin2023. The data and code can both be directly accessed on [figshare](https://doi.org/10.6084/m9.figshare.24548971.v2).
 
-Before reading through this tutorial, please have at least a skim through the original publication, @hagen2021, and familiarise yourself with the structure of the model, the general functions, and their order of operations. It saves me time retyping information here, and saves you time by not getting lost later!
+Before reading through this tutorial, please check out @hagen2021, and familiarise yourself with the structure of the model, the general functions, and their order of operations. It saves me time retyping information here, and saves you time by not getting lost later!
 
-## Repository structure
+Otherwise, perhaps these figures from the paper will jog your memory:
 
-### Input
+Overview of the simulation framework:
 
-We are using a very coarse resolution representation of shallow water marine reefs. The processing steps to get these data were complex and the external data quite large, so we are skipping over these steps. We start here with the pre-formatted landscape object and distance matrices.
+[![@hagen2021](https://journals.plos.org/plosbiology/article/figure/image?size=large&download=&id=10.1371/journal.pbio.3001340.g002){fig-align="center" width="409"}](https://doi.org/10.1371/journal.pbio.3001340)
 
-This directory contains the model inputs:
+Overview of a possible study design:
 
--   **landscape.rds**: this is a list of xy data frames containing the environmental variables for each time step.
-
--   **distance_matrices_full**: the geographic distances between each habitable cell - computed from the landscape (seascape) object.
-
-### Output
-
-This folder contains all the outputs from the model. In this case, we have just one simulation, but we could have many, so we have a directory for the outputs of each simulation. These are flexible, but the core outputs include:
-
--   **Species**: directory containing the species objects (.rds) for each time step. Each one is a list of species, containing:
-
-    -   **id** - species ID
-
-    -   **abundance** - vector of abundances in occupied cells
-
-    -   **traits** - data frame of traits for each occupied cell
-
-    -   **divergence** - list containing two compression objects for the cell-to-cell divergence values between occupied cells
-
--   **Configuration.R**: a copy of the configuration file for that simulation.
-
--   **Starting_ranges.pdf**: plot of the species ranges at the start of the simulation.
-
--   **Starting_richness.pdf**: plot of the species richness at the start of the simulation.
+[![](https://journals.plos.org/plosbiology/article/figure/image?size=large&download=&id=10.1371/journal.pbio.3001340.g001){fig-align="center" width="453"}](https://doi.org/10.1371/journal.pbio.3001340)
 
 # Running Gen3sis
 
-## Setting up a simulation
-
-The workflow is:
+I like to split the workflow into the following steps:
 
 1.  Wrangle your environmental inputs
     1.  landscape object
     2.  distance matrices
-2.  Configure your simulation using a configuration object
+2.  Configure your simulation
 3.  Run your simulation
 4.  Process your outputs
 5.  Analyse your outputs
 
-```{r, echo = FALSE}
+```{r, echo = FALSE,eval=F}
 flow_df <-
   data.frame(from = c("landscape object","distance matrices","configuration file",
                       "run_simulation()","run_simulation()",
@@ -111,7 +88,7 @@ ggraph(flow_graph, circular = FALSE, layout = "tree") +
   theme_void() 
 ```
 
-### 1. Environmental Inputs
+## 1. Wrangle your environmental inputs
 
 Every gen3sis simulation requires two environmental inputs:
 
@@ -119,11 +96,17 @@ Every gen3sis simulation requires two environmental inputs:
 
 -   **Distance matrices**
 
-It's up to the user to wrangle whatever data they need for their project into a gen3sis-friendly format. I find it more transparent to do this manually. But, it is possible to use the `create_input_landscape()` function to both convert a list of named rasters into a landscape object and to calculate the distance matrices.
+It's up to the user to wrangle whatever data they need for their project into a gen3sis-friendly format. I find it more transparent to do this manually using the gdistance package @vanetten2017. But, it is possible to use the `create_input_landscape()` function to convert a list of named rasters into both the landscape object and distance matrices.
 
-#### Landscape Object
+This process can be complex, so here we are using pre-compiled inputs from @keggin2023, but subset to the Caribbean.
 
-Here, we are using a subset of the seascapes from @keggin2023 focussing on the Caribbean. In this case, our environment consists of **sea surface temperature (SST)** and **depth** estimates every 177 ka from \~ 8 mya until the present at a 1 degree resolution. This gives us 48 time steps. These are stored in a list of two data frames: with xy columns for the coordinates, and 48 columns containing the SST and depth values for each time step.
+Our environment consists of **sea surface temperature (SST)** and **depth** estimates every 177 ka from \~ 8 mya until the present at a 1 degree resolution. This gives us 48 time steps. These are stored in the landscapes.rds object, which is a list of two data frames. Each data frame consists of xy columns for the coordinates, and 48 columns containing the SST and depth values for each time step.
+
+To allow species to disperse across the landscape (seascape here), we also have a distance matrix for each time step which defines the geographical distance between every pair of marine cells.
+
+Let's have a look these objects.
+
+### Landscape Object
 
 ```{r}
 landscapes <-
@@ -134,14 +117,59 @@ landscapes <-
 List of two data frames,
 
 ```{r}
-summary(landscapes)
+str(landscapes,
+    max.level = 1)
 ```
 
 each containing xy coordinates and SST and depth values for each time step, respectively.
 
 ```{r}
-landscapes$temp[195:205,1:5]
-landscapes$depth[195:205,1:5]
+knitr::kable(round(landscapes$temp[1:5,1:10],0))
+knitr::kable(round(landscapes$depth[1:5,1:10],0))
+```
+
+We can plot these out to see how they correspond to our seascape at different time steps.
+
+```{r}
+# sea surface temperature
+temp_long <-
+  landscapes$temp |> 
+  pivot_longer(cols = !c(x,y),
+               names_to = "mya",
+               values_to = "SST") |> 
+  mutate(mya = as.numeric(mya)) |> 
+  filter(!is.na(SST),
+         mya %in% c(min(mya),max(mya))) |>  
+  mutate(mya = paste(mya,"mya")) 
+
+ggplot(temp_long) +
+  geom_tile(aes(x=x,y=y,fill = SST)) +
+  facet_grid(~mya) +
+  coord_fixed() +
+  scale_fill_viridis() +
+  xlab("")+ylab("") +
+  ggtitle("Sea Surface Temperature (C)") +
+  theme_minimal()
+  
+# depth
+depth_long <-
+  landscapes$depth |> 
+  pivot_longer(cols = !c(x,y),
+               names_to = "mya",
+               values_to = "depth") |> 
+  mutate(mya = as.numeric(mya)) |> 
+  filter(!is.na(depth),
+         mya %in% c(min(mya),max(mya)))|>  
+  mutate(mya = paste(mya,"mya")) 
+
+ggplot(depth_long) +
+  geom_tile(aes(x=x,y=y,fill = depth)) +
+  facet_grid(~mya) +
+  coord_fixed() +
+  xlab("")+ylab("") +
+  ggtitle("Depth (m)") +
+  theme_minimal()
+
 ```
 
 > **Important!**
@@ -150,15 +178,15 @@ landscapes$depth[195:205,1:5]
 >
 > -   Columns must be named.
 >
-> -   Columns must be in the order: $x,y,t_n,t_{n-1},t_{n-2}...t_0$. I.e., x and y columns, then from the most recent timestep into the past.
+> -   Columns must be in the order: $x,y,t_n,t_{n-1},t_{n-2}...t_0$. I.e., x and y columns, then from the most recent time step into the past.
 >
 > -   Row names must be assigned non-automatically. This is a characteristic of base R whereby row names assigned automatically can change as you manipulate the data frame, whereas if you assign them manually they will persist. It is very sneaky and annoying.
 
-#### Distance matrices
+### Distance matrices
 
 These can be either **local** or **full**. Local are compressed into a sparse matrix and must be decompressed as the simulation runs, increasing CPU usage. Full are uncompressed, taking up more storage, but less CPU resources.
 
-The data here are **full**. The row and column names correspond to the row names (think of them as cell IDs) in the landscapes data frames. Remember to manually assign
+The data here are **full**. The row and column names correspond to the row names (think of them as cell IDs) in the landscapes data frames. Remember to manually assign the row names!
 
 ```{r}
 distance_matrix <-
@@ -167,13 +195,13 @@ distance_matrix <-
 round(distance_matrix[1:10,1:10],0)
 ```
 
-### 2. Configuration
+## 2. Configuration
 
-Once you have your environment set up, we can think about how we'd like to populate the simulation with species and determine how they will behave. This is done through a configuration object. This configuration object (and the gen3sis package in general) is incredibly flexible and can incorporate a lot of information depending on your project. This is not necessary though, and we can run a basic simulation using a bare-bones configuration to get started.
+Once you have your environment set up, we can think about how we'd like to populate the simulation with species and determine how they will behave. This is done through a configuration object. This configuration object is incredibly flexible and can incorporate a lot of complexity depending on your project. This is not necessary though, and we can run a basic simulation using a bare-bones configuration to get started.
 
-The configuration object is generated by feeding a configuration file into the `gen3sis::create_input_config()` function.
+The **configuration object** is generated by feeding a **configuration file** (a .R script) into the `gen3sis::create_input_config()` function.
 
-The follow steps generates a configuration file, and then reads it back in to create the configuration object. I like to think of the configuration in sections:
+We have a pre-made configuration file, `./input/configuration_file.R`, that we can read in. But before we do that, let's go through it's contents here, section by section.
 
 1.  General settings
 2.  Initialisation
@@ -183,11 +211,9 @@ The follow steps generates a configuration file, and then reads it back in to cr
     3.  Evolution
     4.  Ecology
 
-Let's start with a print out of a configuration file (.R script), then work our way through each section.
+### General settings
 
-#### General settings
-
-There are some general variables across the simulation:
+Before setting the simulation functions, we can set up some general variables for the simulation.
 
 -   **random_seed**: set the seed to control for stochastic functions
 
@@ -209,11 +235,12 @@ There are some general variables across the simulation:
 
 -   **environmental_ranges**: scaling options of environmental values in the landscape object
 
--   **end_of_timestep_observer: a flexible function that allows you to save values in the environment at the end of each time step. Very useful!**
+-   **end_of_timestep_observer: a flexible function that allows you to save values in the simulation environment at the end of each time step. Very useful!**
 
-    -   In this instance we will save species richness per cell, and the species object at each time step.
+    -   In this instance we will save species richness per cell, the species object, and the phylogeny at each time step.
 
-```{r}
+```{r, eval = FALSE}
+# General settings -------------------------------------------------------------
 # set the random seed for the simulation
 random_seed = 42
 
@@ -244,10 +271,11 @@ environmental_ranges = list()
 end_of_timestep_observer = function(data, vars, config){
   save_richness()
   save_species()
+  save_phylogeny()
 }
 ```
 
-#### Initialisation
+### Initialisation
 
 This part took me the longest time to figure out. It determines the starting conditions of your simulation and is very flexible!
 
@@ -263,25 +291,43 @@ The initial_abundance variable I hope is straightforward, but the function can b
 
 > Remember! `gen3sis::create_ancestor_species()` is a custom function, we can set up our species however we like - ultimately, the species object is just a nested list (we will visualise it below).
 
-We will keep our initialisation as simple as possible without being (I hope) too boring. Let's start with two imaginary species: a shallow water specialist in the Atlantic (*Pisces atlanticus*), and a depth-generalist in the Pacific (*Pisces pacificus)*. To make it interesting, we can make the Atlantic depth-specialist a temperature-generalist, and the Pacific depth-generalist a temperature-specialist.
+We will keep our initialisation as simple as possible without being (I hope) too boring. Let's start with two imaginary species: one in the Atlantic (*Pisces atlanticus*), and one the Pacific (*Pisces pacificus)*. To make it interesting, let's make the Atlantic species a temperature generalist, and a depth specialist, and *vice versa* for the Pacific species.
 
-To make things easier, we are going to use the `gen3sis::create_species()` function to generate the two species. I know this is confusing - scroll down for clarification!
-
-```{r, eval=F}
-# species starting in the Atlantic, limited by depth
-Pa_start_cells <-
-  landscapes$depth |>
-  as_tibble(rownames = "cell") |>
-  filter(x > -88,x < -84, y > 20, `7.83` > -1000) |>
-  pull(cell)
-
-# species starting in the Pacific, not limited by depth
-Pp_start_cells <-
-  landscapes$depth |>
-  as_tibble(rownames = "cell") |>
-  filter(x > -88,x < -84, y < 10) |>
-  pull(cell)
+```{r,echo = FALSE}
+knitr::kable(data.frame(species = c("Pisces atlanticus","Pisces pacificus"),
+                        temperature = c("generalist","specialist"),
+                        depth = c("specialist","generalist")))
 ```
+
+Before we get into the function, it might be helpful to have a look at an existing species object - the thing we are trying to create!
+
+```{r}
+species_object <-
+  readRDS("./output/configuration_file/species/species_t_47.rds")
+
+str(species_object,
+    max.level = 2)
+```
+
+As we can see, the species object is a nested list containing a sub-list for each individual species in the simulation (extinct species will remain in the overall species object, but with null abundance values, etc.). For each species we have the following information:
+
+-   **id** - species ID (new species will be assigned new IDs in serial automatically)
+-   **abundance** - vector of abundances in occupied cells
+-   **traits** - matrix of traits for each occupied cell
+-   **divergence** - list containing two compression objects for the cell-to-cell divergence values between occupied cells
+-   ***lineage*** - this is a bonus variable I added just in this instance to tag our initial species! This does not usually exist and won't be used in the simulation.
+
+Whilst we are here, let's also have a look at one of the trait matrices.
+
+```{r}
+knitr::kable(head(species_object[[1]]$traits))
+```
+
+We can see that there is a column for each trait we specified in the [general settings], plus a dispersal trait that gets added by default. Don't worry about the dispersal trait this time, we won't be using it!
+
+Each sub-list for the individual species is a handful. To make things easier, we can use the `gen3sis::create_species()` function to generate each species sub-list.
+
+Hopefully, the following function is now understandable.
 
 ```{r, eval=F}
 # Initialisation ---------------------------------------------------------------
@@ -293,48 +339,64 @@ create_ancestor_species <- function(landscape, config) {
   
   #browser()
   
+  # define the starting cells for the two species --------
+  # species starting in the Atlantic, limited by depth
+  Pa_start_cells <-
+    landscapes$depth |>
+    as_tibble(rownames = "cell") |>
+    filter(x > -88,x < -84, y > 20, `7.83` > -1000) |>
+    pull(cell)
+  
+  # species starting in the Pacific, not limited by depth
+  Pp_start_cells <-
+    landscapes$depth |>
+    as_tibble(rownames = "cell") |>
+    filter(x > -88,x < -84, y < 10) |>
+    pull(cell)
+  
+  
   # Remember, the species object is just a list!
   species_object <- list()
   
-  # create the Atlantic species-----------------------------
+  # create the Atlantic species -----------------------------
   species_object[[1]] <-
     gen3sis::create_species(initial_cells = Pa_start_cells,
                             config = config)
   
-  # generate mean thermal niche and standard deviation
-    species_object[[1]]$traits[,"thermal_optimum"] <-
-      18
-    
-    species_object[[1]]$traits[,"thermal_standard_deviation"] <-
-      1
-    
-    # depth trait
-    species_object[[1]]$traits[ , "depth_limit"]   <-
-      -1000
-    
-    # tag on a species name
-    species_object[[1]]$lineage <-
-      "Pisces_atlanticus"
-    
+  # assign the mean thermal niche and standard deviation
+  species_object[[1]]$traits[,"thermal_optimum"] <-
+    18
+  
+  species_object[[1]]$traits[,"thermal_standard_deviation"] <-
+    0.3
+  
+  # assign the minimum depth tolerance
+  species_object[[1]]$traits[ , "depth_limit"]   <-
+    -200
+  
+  # tag on a species name
+  species_object[[1]]$lineage <-
+    "Pisces_atlanticus"
+  
   # create Pacific species ----------------------------------
   species_object[[2]] <-
     gen3sis::create_species(initial_cells = Pp_start_cells,
                             config = config)
   
-  # generate mean thermal niche and standard deviation
-    species_object[[2]]$traits[,"thermal_optimum"] <-
-      21
-    
-    species_object[[2]]$traits[,"thermal_standard_deviation"] <-
-      0.25
-    
-    # depth trait
-    species_object[[2]]$traits[ , "depth_limit"]   <-
-      -10000
-    
-    # tag on a species name
-    species_object[[2]]$lineage <-
-      "Pisces_pacificus"
+  # assign the mean thermal niche and standard deviation
+  species_object[[2]]$traits[,"thermal_optimum"] <-
+    21
+  
+  species_object[[2]]$traits[,"thermal_standard_deviation"] <-
+    0.1
+  
+  # assign the minimum depth tolerance (high!)
+  species_object[[2]]$traits[ , "depth_limit"]   <-
+    -10000
+  
+  # tag on a species name
+  species_object[[2]]$lineage <-
+    "Pisces_pacificus"
   
   # output species object
   return(species_object)
@@ -342,24 +404,13 @@ create_ancestor_species <- function(landscape, config) {
 }
 ```
 
-#### Dispersal
+### Speciation
 
-The dis
+Speciation in gen3sis is works through a discrete threshold mechanic. The user sets a speciation threshold which acts an upper limit of cell-to-cell differentiation within a species. Once this limit is reached, a new species is formed.
 
-```{r, eval=F}
-# Dispersal --------------------------------------------------------------------
-# returns n dispersal values
-get_dispersal_values <- function(num_draws, species, landscape, config) {
-  
-  return(
-    rweibull(num_draws,
-             shape = 2,
-             scale = 400)
-  )
-}
-```
+However! How divergence is accrued between isolated cells is highly customisable! For now, every time step at which a pair of cells are isolated, their pairwise differentiation increases by one. For every time step they are connected through a dispersal event, their pairwise differentiation decreases by one.
 
-#### Speciation
+We assign this by simply returning `1` in the `get_divergence_factor()` function.
 
 ```{r, eval=F}
 # Speciation -------------------------------------------------------------------
@@ -376,7 +427,51 @@ get_divergence_factor <- function(species, cluster_indices, landscape, config) {
 }
 ```
 
-#### Evolution
+### Dispersal
+
+For every pairwise cell comparison, a dispersal attempt is made. Whether this is successful or not is determined by the `get_dispersal_values()` function. This is also highly customisable, and can be determined by the environmental variables and species traits. We will try to keep it simple here, and determine each dispersal attempt by a random pick from a skewed Weibull distribution, using the `stats::rweibull()` function.
+
+```{r, eval=F}
+# Dispersal --------------------------------------------------------------------
+# returns n dispersal values
+get_dispersal_values <- function(num_draws, species, landscape, config) {
+  
+  return(
+    rweibull(num_draws,
+             shape = 2,
+             scale = 500)
+  )
+}
+```
+
+Which we can visualise:
+
+```{r,echo = FALSE}
+ggplot() +
+  
+  # curve
+  stat_function(fun = dweibull,
+                args = list(shape = 2,
+                            scale = 500),
+                colour = "black",
+                fill = "#CC6677",
+                alpha = 0.8,
+                geom = "polygon") +
+  
+  # format
+  xlim(c(0,(500)*3.5)) +
+  
+  # theme
+  ylab("Probability of draw") +
+  xlab("Dispersal Distance (km)") +
+  theme_classic()
+```
+
+### Evolution
+
+Every time step we can change the trait values of each species, which is also highly flexible! We will keep this simple by changing the thermal optima of each species randomly through drawing values from a normal distribution.
+
+Let's call this random, undirected phenotypic mutation - the trait does not track the environment. But you could set it up so it does!
 
 ```{r, eval=F}
 # Evolution --------------------------------------------------------------------
@@ -391,13 +486,142 @@ apply_evolution <- function(species, cluster_indices, landscape, config){
   traits[,"thermal_optimum"] <-
     traits[,"thermal_optimum"] + rnorm(length(traits[,"thermal_optimum"]),
                                        mean=0,
-                                       sd=0.4)
+                                       sd=0.04)
   
   return(traits)
 }
 ```
 
-#### Ecology
+```{r,echo=FALSE}
+before_after <-
+  tibble(before = species_object[[1]]$traits[,"thermal_optimum"],
+         after  = before + rnorm(length(before),
+                                       mean=0,
+                                       sd=0.04),
+         cell = row.names(species_object[[1]]$traits)) 
+
+before_after_long <- 
+  before_after |> 
+  pivot_longer(cols = c(before,after),
+               names_to = "step",
+               values_to = "thermal_optimum")
+
+ggplot() +
+  
+  # line
+  geom_segment(data = before_after,
+               aes(y = before,
+                   yend = after,
+                   x = cell,
+                   xend = cell),
+               linewidth = 1,
+               colour = "grey") +
+  geom_point(data = before_after_long,
+             aes(x = cell, y = thermal_optimum, colour = step),
+             size = 3) +
+  ylab("Thermal Optimum") +
+  ggtitle("Thermal optima trait change - values before and after evolution") +
+  theme_classic()
+
+
+```
+
+### Ecology
+
+The most complex looking, but most intuitive function we will use! We read in the existing abundance values for each cell in a species, modify them, and return a new set of abundance values. How does abundance in each cell change per time step?
+
+In this implementation, each cell has a minimum abundance of 0, and a maximum abundance of 1.
+
+> A cell with an abundance of 0 at the end of this function will go locally extinct!
+
+In our case we have three traits that determine the local abundance of a species:
+
+-   Thermal optimum
+
+-   Thermal standard deviation
+
+-   Depth limit
+
+We use the thermal optimum (mean) and standard deviation to describe a normal distribution to act as an abundance thermal response to temperature. As the distribution probability decays away from the mean (thermal optimum), so does the abundance in that cell. If the resulting abundance is below 0.1, we drive that cell to extinction.
+
+Let's look at an example where the environmental temperature is 21 C, the thermal optimum is 20 C, and the standard deviation is 1 C.
+
+```{r}
+eco_info <-
+  tibble(
+    
+    # find the optimum density of the distribution given perfect thermal niche fit
+    optimal_density = dnorm(20,
+                            mean = 20,
+                            sd = 1), 
+    
+    # the distribution density given the distance between species niche and environment
+    species_density = dnorm(20,
+                            mean = 21,
+                            sd = 1),
+    
+    # adjust the carrying capacity based on thermal suitability
+    carrying_capacity = species_density/optimal_density)
+
+cell_trait <- 20
+cell_sd    <- 1
+
+cell_sst <- 21
+
+cell_opt_density <- eco_info$optimal_density
+cell_sp_density  <- eco_info$species_density
+
+cell_k <- eco_info$carrying_capacity
+
+#extinction <- 
+
+labels <-
+  tibble(poi = c("Optimal species temperature: abundance = 1",
+                 paste("Local temperature: abundance = ",round(cell_k,1))),
+         x = c(cell_trait,cell_sst),
+         y = c(cell_opt_density,cell_sp_density))
+
+
+ggplot() +
+  
+  # suitability curve
+  stat_function(fun = dnorm,
+                args = list(mean = cell_trait,
+                            sd = cell_sd),
+                colour = "black",
+                fill = "#CC6677",
+                alpha = 0.8,
+                geom = "polygon") +
+  
+  # optimal temperature
+  geom_vline(xintercept = cell_trait, alpha = 0.2) +
+  geom_hline(yintercept = cell_opt_density, alpha = 0.2) +
+  
+  # species density
+  geom_vline(xintercept = cell_sst) +
+  geom_hline(yintercept = cell_sp_density) +
+  
+  # extinction
+  geom_hline(yintercept = cell_opt_density*0.1,
+             linetype = "dashed") +
+  
+  # labels
+  geom_text_repel(data = labels,
+                  aes(x=x,y=y,label = poi),
+                  force = 1000) +
+  
+  # format
+  xlim(c(cell_trait+(cell_sd*5),
+         cell_trait-(cell_sd*5))) +
+  
+  # theme
+  ylab("Probability") +
+  xlab("Temperature (C)") +
+  
+  theme_classic()
+```
+
+More simply, the depth limit acts as a hard cut off for abundance. If the depth of the cell is shallower than the depth limit, nothing happens. If it is deeper, that cell is driven to extinction (abundance = 0).
 
 ```{r, eval=F}
 # Ecology ----------------------------------------------------------------------
@@ -422,25 +646,31 @@ apply_ecology <- function(abundance, traits, local_environment, config) {
       # start abundance
       start_abundance = abundance, 
       
-      # the distribution density if the species' niche perfectly fits the environment
+      # the distribution density if the species' niche perfectly fits the temperature
       optimal_density = dnorm(thermal_optimum,
                               mean = thermal_optimum,
                               sd = thermal_standard_deviation),
       
-      # the distribution density given the distance between species niche and environment
+      # the distribution density given the distance between species niche and temperature
       species_density = dnorm(thermal_optimum,
                               mean = temp,
                               sd = thermal_standard_deviation),
       
-      end_abundance = species_density,
+      # determine the abundance
+      end_abundance = species_density/optimal_density,
       
       # drive to (local) extinction if abundance is below 10%
       end_abundance = ifelse(end_abundance < 0.1,
                              0,
                              end_abundance),
       
-      # drive to (local) extinction if the environment is completely unsuitable
+      # drive to (local) extinction if the temperature is completely unsuitable
       end_abundance = ifelse(species_density == 0,
+                             0,
+                             end_abundance),
+      
+      # drive to (local) extinction if the depth is unsuitable
+      end_abundance = ifelse(depth < depth_limit,
                              0,
                              end_abundance)
     ) |> 
@@ -456,7 +686,13 @@ apply_ecology <- function(abundance, traits, local_environment, config) {
 }
 ```
 
-### 3. Run the simulation
+And that's it! Please have a look at the full file: `./inputs/configuration_file.R` to see the full layout.
+
+## 3. Run the simulation
+
+Once we have our configuration file, landscapes, and distance matrices, we are ready run our simulation. This is done using the `run_smulation()` function.
+
+The options are straightforward:
 
 ```{r,eval=F}
 run_simulation(
@@ -471,7 +707,7 @@ run_simulation(
 )
 ```
 
-### 4. Process outputs
+## 4. Process outputs
 
 ```{r}
 # functions
@@ -520,9 +756,9 @@ write_csv(metrics_cell,
           "./results/species_output.csv") #output
 ```
 
-### 5. Explore outputs
+## 5. Analyse outputs
 
-#### Species richness through time
+### Species richness through time
 
 ```{r}
 temperature <-
@@ -578,7 +814,7 @@ ggplot(plot_me) +
     
 ```
 
-#### Species richness 
+### Species richness 
 
 ```{r}
 target_step <-
@@ -614,7 +850,7 @@ ggplot(plot_me) +
   xlab("")+ylab("")
 ```
 
-#### Phylogeny
+### Phylogeny
 
 ```{r}
 phylogeny <-
