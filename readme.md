@@ -1,5 +1,5 @@
 # Gen3sis Sandbox
-
+Thomas Keggin
 
 This repository aims to serve as a data and code package for getting
 started with gen3sis (Hagen et al. (2021)). There are other resources
@@ -75,6 +75,10 @@ containing the SST and depth values for each time step.
 To allow species to disperse across the landscape (seascape here), we
 also have a distance matrix for each time step which defines the
 geographical distance between every pair of marine cells.
+
+> If you’re going to manually set up your landscape object and distance
+> matrices, make sure to follow the file structure and file naming
+> convention - check in out here: `./inputs/seascapes/`.
 
 Let’s have a look these objects.
 
@@ -620,81 +624,6 @@ abundance is below 0.1, we drive that cell to extinction.
 Let’s look at an example where the environmental temperature is 21 C,
 the thermal optimum is 20 C, and the standard deviation is 1 C.
 
-``` r
-eco_info <-
-  tibble(
-    
-    # find the optimum density of the distribution given perfect thermal niche fit
-    optimal_density = dnorm(20,
-                            mean = 20,
-                            sd = 1), 
-    
-    # the distribution density given the distance between species niche and environment
-    species_density = dnorm(20,
-                            mean = 21,
-                            sd = 1),
-    
-    # adjust the carrying capacity based on thermal suitability
-    carrying_capacity = species_density/optimal_density)
-
-cell_trait <- 20
-cell_sd    <- 1
-
-cell_sst <- 21
-
-cell_opt_density <- eco_info$optimal_density
-cell_sp_density  <- eco_info$species_density
-
-cell_k <- eco_info$carrying_capacity
-
-#extinction <- 
-
-labels <-
-  tibble(poi = c("Optimal species temperature: abundance = 1",
-                 paste("Local temperature: abundance = ",round(cell_k,1))),
-         x = c(cell_trait,cell_sst),
-         y = c(cell_opt_density,cell_sp_density))
-
-
-ggplot() +
-  
-  # suitability curve
-  stat_function(fun = dnorm,
-                args = list(mean = cell_trait,
-                            sd = cell_sd),
-                colour = "black",
-                fill = "#CC6677",
-                alpha = 0.8,
-                geom = "polygon") +
-  
-  # optimal temperature
-  geom_vline(xintercept = cell_trait, alpha = 0.2) +
-  geom_hline(yintercept = cell_opt_density, alpha = 0.2) +
-  
-  # species density
-  geom_vline(xintercept = cell_sst) +
-  geom_hline(yintercept = cell_sp_density) +
-  
-  # extinction
-  geom_hline(yintercept = cell_opt_density*0.1,
-             linetype = "dashed") +
-  
-  # labels
-  geom_text_repel(data = labels,
-                  aes(x=x,y=y,label = poi),
-                  force = 1000) +
-  
-  # format
-  xlim(c(cell_trait+(cell_sd*5),
-         cell_trait-(cell_sd*5))) +
-  
-  # theme
-  ylab("Probability") +
-  xlab("Temperature (C)") +
-  
-  theme_classic()
-```
-
 ![](readme_files/figure-commonmark/unnamed-chunk-18-1.png)
 
 More simply, the depth limit acts as a hard cut off for abundance. If
@@ -770,26 +699,34 @@ And that’s it! Please have a look at the full file:
 
 ## 3. Run the simulation
 
-Once we have our configuration file, landscapes, and distance matrices,
-we are ready run our simulation. This is done using the
-`run_smulation()` function.
-
-The options are straightforward:
+We finally have our configuration file, landscapes, and distance
+matrices, and are ready run our simulation. This is done using the
+`run_smulation()` function, which we can just do in the console. This
+implementation shouldn’t be too heavy, if you’d like to try it on your
+own computer!
 
 ``` r
 run_simulation(
   config = "./input/configuration_file.R",
   landscape = "./input/seascapes/",
   output_directory = "./output/",
-  timestep_restart = NA,
-  save_state = NA,
   call_observer = "all",
   enable_gc = TRUE,
   verbose = 1
 )
 ```
 
+And that’s the bulk of it! Once you have your outputs, it’s really up to
+the user to decide what they’d like to do with them. Although I’ve
+continued a bit below with a quick look at the outputs we get from our
+practice simulation.
+
 ## 4. Process outputs
+
+The bulk of the information from the simulation is contained in the
+species objects. We saved the species objects from each time step. Below
+is a block of code that extracts this species information and compiles
+it all into a single data frame for analysis.
 
 ``` r
 # functions
@@ -841,6 +778,10 @@ write_csv(metrics_cell,
 ## 5. Analyse outputs
 
 ### Species richness through time
+
+We can see how species richness builds until the onset of the
+interglacial periods, which eventually drive both of our lineages to
+extinction.
 
 ``` r
 temperature <-
@@ -899,6 +840,10 @@ ggplot(plot_me) +
 
 ### Species richness
 
+We can also manipulate the landscapes and cell metrics to plot out
+spatial patterns - let’s have a look at spatial patterns of species
+richness at particular time steps through time.
+
 ``` r
 target_step <-
   c(0,15,25,47)
@@ -936,6 +881,9 @@ ggplot(plot_me) +
 ![](readme_files/figure-commonmark/unnamed-chunk-23-1.png)
 
 ### Phylogeny
+
+We can also pull the phylogeny from the entire simulation, if we’d like
+to dig into the world of *in-silico* phylogeography!
 
 ``` r
 phylogeny <-
