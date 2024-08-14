@@ -79,7 +79,7 @@ geographical distance between every pair of marine cells.
 
 > If you’re going to manually set up your landscape object and distance
 > matrices, make sure to follow the file structure and file naming
-> convention - check in out here: `./inputs/seascapes/`.
+> convention - check it out here: `./inputs/seascapes/`.
 
 Let’s have a look these objects.
 
