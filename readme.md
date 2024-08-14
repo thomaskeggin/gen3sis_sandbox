@@ -23,6 +23,10 @@ yourself with the structure of the model, the general functions, and
 their order of operations. It saves me time retyping information here,
 and saves you time by not getting lost later!
 
+[<img
+src="https://journals.plos.org/plosbiology/article/figure/image?size=large&amp;download=&amp;id=10.1371/journal.pbio.3001340.g002"
+data-fig-align="center" width="409" alt="Hagen et al. (2021)" />](https://doi.org/10.1371/journal.pbio.3001340)
+
 ## Repository structure
 
 ### Input
