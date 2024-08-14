@@ -127,6 +127,12 @@ knitr::kable(round(landscapes$depth[1:5,1:10],0))
 | -70 |  40 | -2103 | -2103 | -2093 | -2072 | -2013 | -1945 | -1867 | -1854 |
 | -70 |  40 | -2316 | -2316 | -2315 | -2315 | -2269 | -2212 | -2145 | -2114 |
 
+Importantly, row names in these data frames are used to index cells in
+the simulation - they correspond to row and column names in the distance
+matrices, and information in the species objects. It is important that
+these are coherent across your objects - and that you assign them
+manually/non-automatically.
+
 We can plot these out to see how they correspond to our seascape at
 different time steps.
 
@@ -235,7 +241,7 @@ file** (a .R script) into the `gen3sis::create_input_config()` function.
 
 We have a pre-made configuration file, `./input/configuration_file.R`,
 that we can read in. But before we do that, let’s go through it’s
-contents here, section by section.
+contents, section by section.
 
 1.  General settings
 2.  Initialisation
@@ -596,7 +602,7 @@ apply_evolution <- function(species, cluster_indices, landscape, config){
 ### Ecology
 
 The most complex looking, but most intuitive function we will use! We
-read in the existing abundance values for each cell in a species, modify
+load in the existing abundance values for each cell in a species, modify
 them, and return a new set of abundance values. How does abundance in
 each cell change per time step?
 
@@ -702,8 +708,7 @@ And that’s it! Please have a look at the full file:
 We finally have our configuration file, landscapes, and distance
 matrices, and are ready run our simulation. This is done using the
 `run_smulation()` function, which we can just do in the console. This
-implementation shouldn’t be too heavy, if you’d like to try it on your
-own computer!
+implementation shouldn’t be too heavy - give it a go yourself!
 
 ``` r
 run_simulation(
@@ -716,10 +721,15 @@ run_simulation(
 )
 ```
 
-And that’s the bulk of it! Once you have your outputs, it’s really up to
+And that’s the bulk of it. Once you have your outputs, it’s really up to
 the user to decide what they’d like to do with them. Although I’ve
 continued a bit below with a quick look at the outputs we get from our
 practice simulation.
+
+> This is just the beginning - most users run batches of gen3sis
+> simulations. This can be done by building a configuration file
+> template and generating many parameter variants of that template. It
+> is outside the scope of these run through, though.
 
 ## 4. Process outputs
 
