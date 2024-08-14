@@ -424,6 +424,8 @@ Each sub-list for the individual species is a handful. To make things
 easier, we can use the `gen3sis::create_species()` function to generate
 each species sub-list.
 
+Hopefully, the following function is now understandable.
+
 ``` r
 # Initialisation ---------------------------------------------------------------
 # the initial abundance of a newly colonized cell, both during setup and later when colonizing a cell during the dispersal
@@ -485,7 +487,7 @@ create_ancestor_species <- function(landscape, config) {
   species_object[[2]]$traits[,"thermal_standard_deviation"] <-
     0.1
   
-  # assign the minimum depth tolerance
+  # assign the minimum depth tolerance (high!)
   species_object[[2]]$traits[ , "depth_limit"]   <-
     -10000
   
@@ -506,6 +508,15 @@ The user sets a speciation threshold which acts an upper limit of
 cell-to-cell differentiation within a species. Once this limit is
 reached, a new species is formed.
 
+However! How divergence is accrued between isolated cells is highly
+customisable! For now, every time step at which a pair of cells are
+isolated, their pairwise differentiation increases by one. For every
+time step they are connected through a dispersal event, their pairwise
+differentiation decreases by one.
+
+We assign this by simply returning `1` in the `get_divergence_factor()`
+function.
+
 ``` r
 # Speciation -------------------------------------------------------------------
 # threshold for genetic distance after which a speciation event takes place.
@@ -523,7 +534,12 @@ get_divergence_factor <- function(species, cluster_indices, landscape, config) {
 
 ### Dispersal
 
-The dis
+For every pairwise cell comparison, a dispersal attempt is made. Whether
+this is successful or not is determined by the `get_dispersal_values()`
+function. This is also highly customisable, and can be determined by the
+environmental variables and species traits. We will try to keep it
+simple here, and determine each dispersal attempt by a random pick from
+a skewed Weibull distribution, using the `stats::rweibull()` function.
 
 ``` r
 # Dispersal --------------------------------------------------------------------
@@ -538,7 +554,19 @@ get_dispersal_values <- function(num_draws, species, landscape, config) {
 }
 ```
 
+Which we can visualise:
+
+![](readme_files/figure-commonmark/unnamed-chunk-15-1.png)
+
 ### Evolution
+
+Every time step we can change the trait values of each species, which is
+also highly flexible! We will keep this simple by changing the thermal
+optima of each species randomly through drawing values from a normal
+distribution.
+
+Let’s call this random, undirected phenotypic mutation - the trait does
+not track the environment. But you could set it up so it does!
 
 ``` r
 # Evolution --------------------------------------------------------------------
@@ -559,7 +587,120 @@ apply_evolution <- function(species, cluster_indices, landscape, config){
 }
 ```
 
+![](readme_files/figure-commonmark/unnamed-chunk-17-1.png)
+
 ### Ecology
+
+The most complex looking, but most intuitive function we will use! We
+read in the existing abundance values for each cell in a species, modify
+them, and return a new set of abundance values. How does abundance in
+each cell change per time step?
+
+In this implementation, each cell has a minimum abundance of 0, and a
+maximum abundance of 1.
+
+> A cell with an abundance of 0 at the end of this function will go
+> locally extinct!
+
+In our case we have three traits that determine the local abundance of a
+species:
+
+- Thermal optimum
+
+- Thermal standard deviation
+
+- Depth limit
+
+We use the thermal optimum (mean) and standard deviation to describe a
+normal distribution to act as an abundance thermal response to
+temperature. As the distribution probability decays away from the mean
+(thermal optimum), so does the abundance in that cell. If the resulting
+abundance is below 0.1, we drive that cell to extinction.
+
+Let’s look at an example where the environmental temperature is 21 C,
+the thermal optimum is 20 C, and the standard deviation is 1 C.
+
+``` r
+eco_info <-
+  tibble(
+    
+    # find the optimum density of the distribution given perfect thermal niche fit
+    optimal_density = dnorm(20,
+                            mean = 20,
+                            sd = 1), 
+    
+    # the distribution density given the distance between species niche and environment
+    species_density = dnorm(20,
+                            mean = 21,
+                            sd = 1),
+    
+    # adjust the carrying capacity based on thermal suitability
+    carrying_capacity = species_density/optimal_density)
+
+cell_trait <- 20
+cell_sd    <- 1
+
+cell_sst <- 21
+
+cell_opt_density <- eco_info$optimal_density
+cell_sp_density  <- eco_info$species_density
+
+cell_k <- eco_info$carrying_capacity
+
+#extinction <- 
+
+labels <-
+  tibble(poi = c("Optimal species temperature: abundance = 1",
+                 paste("Local temperature: abundance = ",round(cell_k,1))),
+         x = c(cell_trait,cell_sst),
+         y = c(cell_opt_density,cell_sp_density))
+
+
+ggplot() +
+  
+  # suitability curve
+  stat_function(fun = dnorm,
+                args = list(mean = cell_trait,
+                            sd = cell_sd),
+                colour = "black",
+                fill = "#CC6677",
+                alpha = 0.8,
+                geom = "polygon") +
+  
+  # optimal temperature
+  geom_vline(xintercept = cell_trait, alpha = 0.2) +
+  geom_hline(yintercept = cell_opt_density, alpha = 0.2) +
+  
+  # species density
+  geom_vline(xintercept = cell_sst) +
+  geom_hline(yintercept = cell_sp_density) +
+  
+  # extinction
+  geom_hline(yintercept = cell_opt_density*0.1,
+             linetype = "dashed") +
+  
+  # labels
+  geom_text_repel(data = labels,
+                  aes(x=x,y=y,label = poi),
+                  force = 1000) +
+  
+  # format
+  xlim(c(cell_trait+(cell_sd*5),
+         cell_trait-(cell_sd*5))) +
+  
+  # theme
+  ylab("Probability") +
+  xlab("Temperature (C)") +
+  
+  theme_classic()
+```
+
+![](readme_files/figure-commonmark/unnamed-chunk-18-1.png)
+
+More simply, the depth limit acts as a hard cut off for abundance. If
+the depth of the cell is shallower than the depth limit, nothing
+happens. If it is deeper, that cell is driven to extinction (abundance =
+0).
 
 ``` r
 # Ecology ----------------------------------------------------------------------
@@ -624,7 +765,16 @@ apply_ecology <- function(abundance, traits, local_environment, config) {
 }
 ```
 
+And that’s it! Please have a look at the full file:
+`./inputs/configuration_file.R` to see the full layout.
+
 ## 3. Run the simulation
+
+Once we have our configuration file, landscapes, and distance matrices,
+we are ready run our simulation. This is done using the
+`run_smulation()` function.
+
+The options are straightforward:
 
 ``` r
 run_simulation(
@@ -745,7 +895,7 @@ ggplot(plot_me) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 ```
 
-![](readme_files/figure-commonmark/unnamed-chunk-19-1.png)
+![](readme_files/figure-commonmark/unnamed-chunk-22-1.png)
 
 ### Species richness
 
@@ -783,7 +933,7 @@ ggplot(plot_me) +
   xlab("")+ylab("")
 ```
 
-![](readme_files/figure-commonmark/unnamed-chunk-20-1.png)
+![](readme_files/figure-commonmark/unnamed-chunk-23-1.png)
 
 ### Phylogeny
 
@@ -798,7 +948,7 @@ plot.phylo(phylogeny,
            show.tip.label = FALSE)
 ```
 
-![](readme_files/figure-commonmark/unnamed-chunk-21-1.png)
+![](readme_files/figure-commonmark/unnamed-chunk-24-1.png)
 
 # References
 
