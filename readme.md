@@ -336,8 +336,9 @@ We will keep our initialisation as simple as possible without being (I
 hope) too boring. Let’s start with two imaginary species: a shallow
 water specialist in the Atlantic (*Pisces atlanticus*), and a
 depth-generalist in the Pacific (*Pisces pacificus)*. To make it
-interesting, we can make the Atlantic depth specialist a temperature
-generalist, and the Pacific depth generalist a temperature specialist.
+interesting, we can make the Atlantic depth-specialist a
+temperature-generalist, and the Pacific depth-generalist a
+temperature-specialist.
 
 To make things easier, we are going to use the
 `gen3sis::create_species()` function to generate the two species. I know
@@ -357,7 +358,9 @@ Pp_start_cells <-
   as_tibble(rownames = "cell") |>
   filter(x > -88,x < -84, y < 10) |>
   pull(cell)
+```
 
+``` r
 # Initialisation ---------------------------------------------------------------
 # the initial abundance of a newly colonized cell, both during setup and later when colonizing a cell during the dispersal
 initial_abundance = 0.1
@@ -370,31 +373,341 @@ create_ancestor_species <- function(landscape, config) {
   # Remember, the species object is just a list!
   species_object <- list()
   
-  # create the Atlantic species
+  # create the Atlantic species-----------------------------
   species_object[[1]] <-
     gen3sis::create_species(initial_cells = Pa_start_cells,
                             config = config)
   
   # generate mean thermal niche and standard deviation
     species_object[[1]]$traits[,"thermal_optimum"] <-
-      
+      18
     
     species_object[[1]]$traits[,"thermal_standard_deviation"] <-
-      0.5
+      1
     
     # depth trait
-    species_object[[1]]$traits[ , "depth_limit"]   <- -10000
-  
-  # create Pacific species
+    species_object[[1]]$traits[ , "depth_limit"]   <-
+      -1000
+    
+    # tag on a species name
+    species_object[[1]]$lineage <-
+      "Pisces_atlanticus"
+    
+  # create Pacific species ----------------------------------
   species_object[[2]] <-
     gen3sis::create_species(initial_cells = Pp_start_cells,
                             config = config)
+  
+  # generate mean thermal niche and standard deviation
+    species_object[[2]]$traits[,"thermal_optimum"] <-
+      21
+    
+    species_object[[2]]$traits[,"thermal_standard_deviation"] <-
+      0.25
+    
+    # depth trait
+    species_object[[2]]$traits[ , "depth_limit"]   <-
+      -10000
+    
+    # tag on a species name
+    species_object[[2]]$lineage <-
+      "Pisces_pacificus"
   
   # output species object
   return(species_object)
   
 }
 ```
+
+#### Dispersal
+
+The dis
+
+``` r
+# Dispersal --------------------------------------------------------------------
+# returns n dispersal values
+get_dispersal_values <- function(num_draws, species, landscape, config) {
+  
+  return(
+    rweibull(num_draws,
+             shape = 2,
+             scale = 400)
+  )
+}
+```
+
+#### Speciation
+
+``` r
+# Speciation -------------------------------------------------------------------
+# threshold for genetic distance after which a speciation event takes place.
+# speciation after every timestep : 0.9.
+# we are removing the speciation dynamic by setting the threshold to infinity.
+divergence_threshold = 3
+
+# factor by which the genetic distance is increased between geographically isolated population of a species
+# can also be a matrix between the different population clusters
+get_divergence_factor <- function(species, cluster_indices, landscape, config) {
+  
+  return(1)
+}
+```
+
+#### Evolution
+
+``` r
+# Evolution --------------------------------------------------------------------
+# mutate the traits of a species and return the new traits matrix
+apply_evolution <- function(species, cluster_indices, landscape, config){
+  
+  #browser()
+  
+  traits <-
+    species[["traits"]]
+  
+  traits[,"thermal_optimum"] <-
+    traits[,"thermal_optimum"] + rnorm(length(traits[,"thermal_optimum"]),
+                                       mean=0,
+                                       sd=0.4)
+  
+  return(traits)
+}
+```
+
+#### Ecology
+
+``` r
+# Ecology ----------------------------------------------------------------------
+# called for every cell with all occuring species, this function calculates who survives in the current cells
+# returns a vector of abundances
+# set the abundance to 0 for every species supposed to die
+apply_ecology <- function(abundance, traits, local_environment, config) {
+  
+  #browser()
+  
+  new_abundance <-
+    
+    # trait information
+    dplyr::as_tibble(traits) |> 
+    
+    # environmental information
+    cbind(dplyr::as_tibble(local_environment)) |> 
+    
+    # ecology calculations
+    dplyr::mutate(
+      
+      # start abundance
+      start_abundance = abundance, 
+      
+      # the distribution density if the species' niche perfectly fits the environment
+      optimal_density = dnorm(thermal_optimum,
+                              mean = thermal_optimum,
+                              sd = thermal_standard_deviation),
+      
+      # the distribution density given the distance between species niche and environment
+      species_density = dnorm(thermal_optimum,
+                              mean = temp,
+                              sd = thermal_standard_deviation),
+      
+      end_abundance = species_density,
+      
+      # drive to (local) extinction if abundance is below 10%
+      end_abundance = ifelse(end_abundance < 0.1,
+                             0,
+                             end_abundance),
+      
+      # drive to (local) extinction if the environment is completely unsuitable
+      end_abundance = ifelse(species_density == 0,
+                             0,
+                             end_abundance)
+    ) |> 
+    
+    # extract end abundance only
+    dplyr::pull(end_abundance)
+  
+  # assign cell names
+  names(new_abundance) <- names(abundance)
+  
+  # fin
+  return(new_abundance)
+}
+```
+
+### 3. Run the simulation
+
+``` r
+run_simulation(
+  config = "./input/configuration_file.R",
+  landscape = "./input/seascapes/",
+  output_directory = "./output/",
+  timestep_restart = NA,
+  save_state = NA,
+  call_observer = "all",
+  enable_gc = TRUE,
+  verbose = 1
+)
+```
+
+### 4. Process outputs
+
+``` r
+# functions
+dir_fun <-
+  "./scripts/functions/"
+
+for(f in list.files(dir_fun)){
+  
+  source(paste0(dir_fun,f))
+}
+
+# list of species objects
+species_files <-
+  list.files("./output/configuration_file/species/")
+
+# container for species data frames for each time step
+species_dfs <-
+  vector("list",length(species_files))
+
+# loop through species objects
+for(file in 1:length(species_files)){
+  
+  # load in and apply species data frame function
+  species_dfs[[file]] <-
+    speciesDF(
+      species_object = readRDS(paste0("./output/configuration_file/species/",
+                                      species_files[file])))
+  
+  # skip all species are extinct
+  if(dim(species_dfs[[file]])[1] > 0){
+    
+    species_dfs[[file]] <-
+      species_dfs[[file]] |> 
+      mutate(timestep = parse_number(species_files[file]),
+             .before = 1)
+  }
+}
+
+# combine data frames
+metrics_cell <-
+  do.call(rbind.data.frame,species_dfs) |> 
+  as_tibble()
+
+# export -----------------------------------------------------------------------
+write_csv(metrics_cell,
+          "./results/species_output.csv") #output
+```
+
+### 5. Explore outputs
+
+#### Species richness through time
+
+``` r
+temperature <-
+  landscapes$temp |>
+  as_tibble(rownames = "cell") |> 
+  pivot_longer(cols = c(!cell:y),
+               names_to = "mya",
+               values_to = "temperature") |> 
+  group_by(mya) |> 
+  reframe(mean_temperature = mean(temperature,na.rm=T))
+
+depth <-
+  landscapes$depth |>
+  as_tibble(rownames = "cell") |> 
+  pivot_longer(cols = c(!cell:y),
+               names_to = "mya",
+               values_to = "depth") |> 
+  group_by(mya) |> 
+  reframe(mean_depth = mean(depth,na.rm=T))
+
+years_to_timesteps <-
+  data.frame(mya = colnames(landscapes$depth[,-c(1:2)]),
+             timestep = 0:47)
+
+richness_v_t <-
+  metrics_cell |>
+  left_join(years_to_timesteps,by="timestep") |> 
+  group_by(mya) |> 
+  reframe(richness = length(unique(species)))
+
+global_extinction <-
+  data.frame(mya = years_to_timesteps$mya[!years_to_timesteps$mya %in% richness_v_t$mya],
+             richness = 0)
+
+richness_v_t <-
+  rbind(richness_v_t,
+        global_extinction)
+
+plot_me <-
+  richness_v_t |> 
+  left_join(temperature,by = "mya") |> 
+  left_join(depth,by = "mya") |> 
+  pivot_longer(cols = c(!mya))
+  
+
+ggplot(plot_me) +
+  geom_line(aes(x = mya,
+                 y = value,
+                group=1))+
+  facet_wrap(~name,ncol = 1,scales = "free_y") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+![](readme_files/figure-commonmark/unnamed-chunk-16-1.png)
+
+#### Species richness
+
+``` r
+target_step <-
+  c(0,15,25,47)
+
+ocean <-
+  landscapes$depth |>
+  as_tibble(rownames = "cell") |> 
+  pivot_longer(cols = !c(x,y,cell),
+               names_to = "mya",
+               values_to = "depth") |> 
+  left_join(years_to_timesteps,by = "mya")
+
+# start richness
+richness <-
+  metrics_cell |> 
+  group_by(timestep,cell) |> 
+  reframe(richness = length(unique(species)))
+
+plot_me <-
+  left_join(ocean,richness,by = join_by(cell, timestep)) |> 
+  filter(timestep %in% target_step,
+         !is.na(depth))
+
+ggplot(plot_me) +
+  
+  geom_tile(aes(x=x,y=y),fill = "#0487D9",alpha = .2) +
+  geom_tile(aes(x=x,y=y,fill = richness)) +
+  facet_wrap(~mya) +
+  scale_fill_viridis_c(na.value = "transparent",end = 0.75) +
+  coord_fixed() +
+  theme_minimal() +
+  xlab("")+ylab("")
+```
+
+![](readme_files/figure-commonmark/unnamed-chunk-17-1.png)
+
+#### Phylogeny
+
+``` r
+phylogeny <-
+  read.nexus(paste0("./output/configuration_file/phy.nex"))
+
+phylogeny$edge.length <-
+  phylogeny$edge.length+1
+
+plot.phylo(phylogeny,
+           show.tip.label = FALSE)
+```
+
+![](readme_files/figure-commonmark/unnamed-chunk-18-1.png)
 
 # References
 
