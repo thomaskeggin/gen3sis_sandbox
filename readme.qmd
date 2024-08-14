@@ -33,7 +33,7 @@ Otherwise, perhaps these figures from the paper will jog your memory:
 
 Overview of the simulation framework:
 
-[![@hagen2021](https://journals.plos.org/plosbiology/article/figure/image?size=large&download=&id=10.1371/journal.pbio.3001340.g002){fig-align="center" width="409"}](https://doi.org/10.1371/journal.pbio.3001340)
+[![](https://journals.plos.org/plosbiology/article/figure/image?size=large&download=&id=10.1371/journal.pbio.3001340.g002){fig-align="center" width="409"}](https://doi.org/10.1371/journal.pbio.3001340)
 
 Overview of a possible study design:
 
@@ -97,7 +97,7 @@ Every gen3sis simulation requires two environmental inputs:
 
 -   **Distance matrices**
 
-It's up to the user to wrangle whatever data they need for their project into a gen3sis-friendly format. I find it more transparent to do this manually using the gdistance package @vanetten2017. But, it is possible to use the `create_input_landscape()` function to convert a list of named rasters into both the landscape object and distance matrices.
+It's up to the user to wrangle whatever data they need for their project into a gen3sis-friendly format. I find it more transparent to do this manually, using the gdistance package (@vanetten2017) for the distance matrices. But, it is possible to use the `create_input_landscape()` function to convert a list of named rasters into both the landscape object and distance matrices.
 
 This process can be complex, so here we are using pre-compiled inputs from @keggin2023, but subset to the Caribbean.
 
@@ -823,7 +823,7 @@ ggplot(plot_me) +
     
 ```
 
-### Species richness 
+### Species richness
 
 We can also manipulate the landscapes and cell metrics to plot out spatial patterns - let's have a look at spatial patterns of species richness at particular points in our simulation's history.
 

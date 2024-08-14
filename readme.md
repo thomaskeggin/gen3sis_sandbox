@@ -28,7 +28,7 @@ Overview of the simulation framework:
 
 [<img
 src="https://journals.plos.org/plosbiology/article/figure/image?size=large&amp;download=&amp;id=10.1371/journal.pbio.3001340.g002"
-data-fig-align="center" width="409" alt="Hagen et al. (2021)" />](https://doi.org/10.1371/journal.pbio.3001340)
+data-fig-align="center" width="409" />](https://doi.org/10.1371/journal.pbio.3001340)
 
 Overview of a possible study design:
 
@@ -58,9 +58,10 @@ Every gen3sis simulation requires two environmental inputs:
 
 It’s up to the user to wrangle whatever data they need for their project
 into a gen3sis-friendly format. I find it more transparent to do this
-manually using the gdistance package Etten (2017). But, it is possible
-to use the `create_input_landscape()` function to convert a list of
-named rasters into both the landscape object and distance matrices.
+manually, using the gdistance package (Etten (2017)) for the distance
+matrices. But, it is possible to use the `create_input_landscape()`
+function to convert a list of named rasters into both the landscape
+object and distance matrices.
 
 This process can be complex, so here we are using pre-compiled inputs
 from Keggin et al. (2023), but subset to the Caribbean.
