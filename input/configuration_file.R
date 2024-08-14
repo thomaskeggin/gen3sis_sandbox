@@ -41,6 +41,22 @@ create_ancestor_species <- function(landscape, config) {
   
   #browser()
   
+  # define the starting cells for the two species --------
+  # species starting in the Atlantic, limited by depth
+  Pa_start_cells <-
+    landscapes$depth |>
+    as_tibble(rownames = "cell") |>
+    filter(x > -88,x < -84, y > 20, `7.83` > -1000) |>
+    pull(cell)
+  
+  # species starting in the Pacific, not limited by depth
+  Pp_start_cells <-
+    landscapes$depth |>
+    as_tibble(rownames = "cell") |>
+    filter(x > -88,x < -84, y < 10) |>
+    pull(cell)
+  
+  
   # Remember, the species object is just a list!
   species_object <- list()
   
@@ -89,17 +105,6 @@ create_ancestor_species <- function(landscape, config) {
   
 }
 
-# Dispersal --------------------------------------------------------------------
-# returns n dispersal values
-get_dispersal_values <- function(num_draws, species, landscape, config) {
-  
-  return(
-    rweibull(num_draws,
-             shape = 2,
-             scale = 500)
-  )
-}
-
 # Speciation -------------------------------------------------------------------
 # threshold for genetic distance after which a speciation event takes place.
 # speciation after every timestep : 0.9.
@@ -111,6 +116,17 @@ divergence_threshold = 3
 get_divergence_factor <- function(species, cluster_indices, landscape, config) {
   
   return(1)
+}
+
+# Dispersal --------------------------------------------------------------------
+# returns n dispersal values
+get_dispersal_values <- function(num_draws, species, landscape, config) {
+  
+  return(
+    rweibull(num_draws,
+             shape = 2,
+             scale = 500)
+  )
 }
 
 # Evolution --------------------------------------------------------------------
