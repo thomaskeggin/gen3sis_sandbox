@@ -5,4 +5,4 @@ We are using a very coarse resolution representation of shallow water marine ree
 This directory contains the model inputs:
 
 - **landscape.rds**: this is a list of xy data frames containing the environmental variables for each time step.
-- **distance_full**: the geographic distances between each habitable cell - computed from the landscape (seascape) object.
+- **distances_full**: the geographic distances between each habitable cell - computed from the landscape (seascape) object.
