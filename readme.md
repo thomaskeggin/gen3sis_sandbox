@@ -66,16 +66,17 @@ object and distance matrices.
 This process can be complex, so here we are using pre-compiled inputs
 from Keggin et al. (2023), but subset to the Caribbean.
 
-Our environment consists of **sea surface temperature (SST)** and
-**depth** estimates every 177 ka from ~ 8 mya until the present at a 1
-degree resolution. This gives us 48 time steps. These are stored in the
-landscapes.rds object, which is a list of two data frames. Each data
-frame consists of xy columns for the coordinates, and 48 columns
+Our landscape object contains **sea surface temperature (SST)** and
+**depth** estimates for every 177 ka from ~ 8 mya until the present (48
+time steps) at a 1 degree spatial resolution. The landscapes.rds object
+itself is a list of two data frames, one for SST and one for depth. Each
+data frame consists of xy columns for the coordinates, and 48 columns
 containing the SST and depth values for each time step.
 
-To allow species to disperse across the landscape (seascape here), we
-also have a distance matrix for each time step which defines the
-geographical distance between every pair of marine cells.
+The distance matrices define the geographical distance between every
+pair of marine cells. This allows us to control how species can disperse
+across the land(sea)scape. Since the landscape can be different at each
+time step, we have a distance matrix for each one.
 
 > If you’re going to manually set up your landscape object and distance
 > matrices, make sure to follow the file structure and file naming
@@ -105,28 +106,28 @@ each containing xy coordinates plus SST and depth values for each time
 step, respectively.
 
 ``` r
-knitr::kable(round(landscapes$temp[1:5,1:10],0))
+knitr::kable(round(landscapes$temp[1:5,1:10],0),row.names = TRUE)
 ```
 
-|   x |   y | 0.00 | 0.17 | 0.33 | 0.50 | 0.67 | 0.83 | 1.00 | 1.17 |
-|----:|----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|
-| -74 |  40 |    8 |   -4 |    8 |   -3 |    8 |    1 |    7 |    1 |
-| -72 |  40 |    8 |   -3 |    8 |   -2 |    8 |    1 |    7 |    2 |
-| -72 |  40 |    8 |   -2 |    8 |   -1 |    8 |    2 |    7 |    2 |
-| -70 |  40 |    8 |   -1 |    8 |    0 |    8 |    2 |    7 |    3 |
-| -70 |  40 |    8 |    0 |    8 |    0 |    8 |    3 |    7 |    3 |
+|     |   x |   y | 0.00 | 0.17 | 0.33 | 0.50 | 0.67 | 0.83 | 1.00 | 1.17 |
+|:----|----:|----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|-----:|
+| 1   | -74 |  40 |    8 |   -4 |    8 |   -3 |    8 |    1 |    7 |    1 |
+| 2   | -72 |  40 |    8 |   -3 |    8 |   -2 |    8 |    1 |    7 |    2 |
+| 3   | -72 |  40 |    8 |   -2 |    8 |   -1 |    8 |    2 |    7 |    2 |
+| 4   | -70 |  40 |    8 |   -1 |    8 |    0 |    8 |    2 |    7 |    3 |
+| 5   | -70 |  40 |    8 |    0 |    8 |    0 |    8 |    3 |    7 |    3 |
 
 ``` r
-knitr::kable(round(landscapes$depth[1:5,1:10],0))
+knitr::kable(round(landscapes$depth[1:5,1:10],0),row.names = TRUE)
 ```
 
-|   x |   y |  0.00 |  0.17 |  0.33 |  0.50 |  0.67 |  0.83 |  1.00 |  1.17 |
-|----:|----:|------:|------:|------:|------:|------:|------:|------:|------:|
-| -74 |  40 |  -162 |  -162 |  -156 |  -143 |  -134 |  -117 |   -93 |   -78 |
-| -72 |  40 |  -691 |  -691 |  -704 |  -730 |  -734 |  -669 |  -536 |  -451 |
-| -72 |  40 | -1379 | -1379 | -1440 | -1562 | -1605 | -1513 | -1286 | -1195 |
-| -70 |  40 | -2103 | -2103 | -2093 | -2072 | -2013 | -1945 | -1867 | -1854 |
-| -70 |  40 | -2316 | -2316 | -2315 | -2315 | -2269 | -2212 | -2145 | -2114 |
+|     |   x |   y |  0.00 |  0.17 |  0.33 |  0.50 |  0.67 |  0.83 |  1.00 |  1.17 |
+|:----|----:|----:|------:|------:|------:|------:|------:|------:|------:|------:|
+| 1   | -74 |  40 |  -162 |  -162 |  -156 |  -143 |  -134 |  -117 |   -93 |   -78 |
+| 2   | -72 |  40 |  -691 |  -691 |  -704 |  -730 |  -734 |  -669 |  -536 |  -451 |
+| 3   | -72 |  40 | -1379 | -1379 | -1440 | -1562 | -1605 | -1513 | -1286 | -1195 |
+| 4   | -70 |  40 | -2103 | -2103 | -2093 | -2072 | -2013 | -1945 | -1867 | -1854 |
+| 5   | -70 |  40 | -2316 | -2316 | -2315 | -2315 | -2269 | -2212 | -2145 | -2114 |
 
 Importantly, row names in these data frames are used to index cells in
 the simulation - they correspond to row and column names in the distance
@@ -150,17 +151,18 @@ different time steps.
 > - Columns must be in the order: $x,y,t_n,t_{n-1},t_{n-2}...t_0$. I.e.,
 >   x and y columns, then from the most recent time step into the past.
 >
-> - Row names must be assigned non-automatically. This is a
->   characteristic of base R whereby row names assigned automatically
->   can change as you manipulate the data frame, whereas if you assign
->   them manually they will persist. It is very sneaky and annoying.
+> - Row names must be assigned non-automatically for both the landscape
+>   data frames and distance matrices. This is a characteristic of base
+>   R whereby row names assigned automatically can change as you
+>   manipulate the object, whereas if you assign them manually they will
+>   persist. It is very sneaky and annoying.
 
 ### Distance matrices
 
 These can be either **local** or **full**. Local are compressed into a
 sparse matrix and must be decompressed as the simulation runs,
 increasing CPU usage. Full are uncompressed, taking up more storage but
-fewer CPU resources.
+is less demanding on your CPU resources.
 
 The data here are **full**. The row and column names correspond to the
 row names (think of them as cell IDs) in the landscapes data frames.
@@ -188,35 +190,35 @@ round(distance_matrix[1:10,1:10],0)
 ## 2. Configuration
 
 Once you have your environment set up, we can think about how you’d like
-to populate the simulation with species, and determine how they will
-behave. This is done through a configuration object. This configuration
-object is incredibly flexible and can incorporate a lot of complexity
-depending on your project. This complexity is not necessary though, and
-we can run a basic simulation using a bare-bones configuration to get
-started.
+to populate the simulation with species, and determine how these species
+will behave. This is done through a configuration object. The
+configuration object is incredibly flexible and can incorporate a lot of
+complexity depending on your project. This complexity is not necessary
+though, and we can use a bare-bones configuration to get started.
 
-The **configuration object** is generated by feeding a **configuration
-file** (a .R script) into the `gen3sis::create_input_config()`
-function - which is done by `gen3sis::run_simulation()`. So all we need
-to do is write an R script with containing the required variable and
-function definitions.
+The **configuration object** (R object) itself is generated by feeding a
+**configuration file** (an .R script) into the
+`gen3sis::create_input_config()` function - which is called by
+`gen3sis::run_simulation()`. This feels convoluted, but ultimately means
+that all we need to do is write an R script containing the required
+variable and function definitions.
 
 We have a pre-made configuration file, `./input/configuration_file.R`,
-that we can read in. But before we do that, let’s go through it’s
-contents, section by section.
+that we can read in. But before we do that, let’s make sure we
+understand it by going through it’s contents, section by section.
 
-1.  General settings
-2.  Initialisation
-3.  Time step functions
-    1.  Dispersal
-    2.  Speciation
-    3.  Evolution
-    4.  Ecology
+1.  [General settings](#general-settings)
+2.  [Initialisation](#initialisation)
+3.  [Time step functions](#time-step-functions)
+    1.  [Speciation](#speciation)
+    2.  [Dispersal](#dispersal)
+    3.  [Evolution](#evolution)
+    4.  [Ecology](#ecology)
 
 ### General settings
 
 Before setting the simulation functions, we can set up some general
-variables for the simulation.
+variables for the simulation. These are:
 
 - **random_seed**: set the seed to control for stochastic functions
 
@@ -247,7 +249,7 @@ variables for the simulation.
   the landscape object
 
 - **end_of_timestep_observer: a flexible function that allows you to
-  save values in the simulation environment at the end of each time
+  save objects from the simulation environment at the end of each time
   step. Very useful!**
 
   - In this instance we will save species richness per cell, the species
@@ -291,11 +293,12 @@ end_of_timestep_observer = function(data, vars, config){
 
 ### Initialisation
 
-This part took me the longest time to figure out. It determines the
-starting conditions of your simulation and is very flexible!
+This part took me the longest to figure out. It determines the starting
+conditions of your simulation and is very flexible!
 
 - **initial_abundance**: the starting abundance for both newly colonised
-  cells and those occupied at the beginning of the simulation.
+  cells during the simulation, and those occupied at the beginning of
+  the simulation.
 
 - **create_ancestor_species**: this is a function that determines the
   starting species in the simulation.
@@ -311,8 +314,8 @@ is reading through the configuration file and slowly building a
 configuration object. The `gen3sis::create_ancestor_species()` function
 reads in the landscape object (so we can use it to determine where our
 species go) and the partially constructed configuration object
-(`config`). The output is the first species object which is read into
-the simulation at time zero.
+(`config`). The output is the first species object to be read into the
+simulation at time zero.
 
 > Remember! `gen3sis::create_ancestor_species()` is a custom function,
 > we can set up our species however we like - ultimately, the species
@@ -322,7 +325,7 @@ We will keep our initialisation as simple as possible without being (I
 hope) too boring. Let’s start with two imaginary species: one in the
 Atlantic (*Pisces atlanticus*), and one the Pacific (*Pisces
 pacificus)*. To make it interesting, let’s make the Atlantic species a
-temperature generalist, and a depth specialist, and *vice versa* for the
+temperature generalist and a depth specialist, and *vice versa* for the
 Pacific species.
 
 | species           | temperature | depth      |
@@ -366,9 +369,9 @@ for each individual species in the simulation (extinct species will
 remain in the overall species object, but with null abundance values,
 etc.). For each species we have the following information:
 
-- **id** - species ID (new species will be assigned new IDs in serial
+- **id** - species ID (new species will be assigned new IDs in serial,
   automatically)
-- **abundance** - vector of abundances in occupied cells
+- **abundance** - vector of abundances for occupied cells
 - **traits** - matrix of traits for each occupied cell
 - **divergence** - list containing two compression objects for the
   cell-to-cell divergence values between occupied cells
@@ -397,11 +400,14 @@ won’t be using it!
 
 Manually creating each sub-list for the individual species is tedious.
 To make things easier, we can use the `gen3sis::create_species()`
-function to generate each species sub-list instead. Once the sub-list is
-created, we can then define the trait values, and any extras we would
-like to throw in there.
+function to generate each species sub-list instead. Once the individual
+species sub-list is created, we can then define the trait values, and
+any extras we would like to throw in there.
 
-Hopefully, the following function is now understandable.
+Hopefully, the following function is now understandable. We start by
+pulling out the starting cell IDs for each species, then create each
+one. We use `gen3sis::create_species()` to set up the species sub-list,
+then manually set their trait values, plus a bonus lineage name.
 
 ``` r
 # Initialisation ---------------------------------------------------------------
@@ -427,7 +433,6 @@ create_ancestor_species <- function(landscape, config) {
     as_tibble(rownames = "cell") |>
     filter(x > -88,x < -84, y < 10) |>
     pull(cell)
-  
   
   # Remember, the species object is just a list!
   species_object <- list()
@@ -481,7 +486,7 @@ create_ancestor_species <- function(landscape, config) {
 ### Time step functions
 
 These functions are called every time step, and are the backbone of the
-simulation. The order below is the order they are run.
+simulation. The order below is the order in which they are run.
 
 #### Speciation
 
@@ -517,15 +522,18 @@ get_divergence_factor <- function(species, cluster_indices, landscape, config) {
 #### Dispersal
 
 For every pairwise cell comparison, a dispersal attempt is made. Whether
-this is successful or not is determined by the `get_dispersal_values()`
-function. If the cell-to-cell dispersal attempt exceeds the cell-to-cell
+this attempt is successful or not is determined by comparing the
+`get_dispersal_values()` function output, and the corresponding
+geographical distance (distance matrix value) between that pair of
+cells. If the cell-to-cell dispersal attempt exceeds the cell-to-cell
 value in the corresponding distance matrix for that time step, the
-dispersal attempt is a success. The way in which the cell-to-cell
-dispersal distance value is determined is also highly customisable - and
-can be determined by the environmental variables and species traits. We
-will try to keep it simple here by determining each dispersal attempt by
-a random pick from a skewed Weibull distribution, using the
-`stats::rweibull()` function.
+dispersal attempt is a success.
+
+The way in which the dispersal attempt distance value is determined is
+highly customisable - and can be determined by environmental variables
+and species traits. We will try to keep it simple here by determining
+each dispersal attempt through a random pick from a skewed Weibull
+distribution, using the `stats::rweibull()` function.
 
 ``` r
 # Dispersal --------------------------------------------------------------------
@@ -547,12 +555,12 @@ Which we can visualise:
 #### Evolution
 
 Every time step we can change the trait values of each species, which is
-also highly flexible! We will keep this simple by changing the thermal
+again highly flexible! We will keep this simple by changing the thermal
 optima of each species randomly through drawing values from a normal
 distribution.
 
 Let’s call this random, undirected phenotypic mutation - the trait does
-not track the environment. But you could set it up so it does!
+not track the environment. But you could set it up so that it does!
 
 ``` r
 # Evolution --------------------------------------------------------------------
@@ -579,7 +587,7 @@ apply_evolution <- function(species, cluster_indices, landscape, config){
 
 The most complex looking, but most intuitive function we will use! We
 load in the existing abundance values for each cell in a species, modify
-them, and return a new set of abundance values.
+them, then return a new set of abundance values.
 
 In this implementation, each cell has a minimum abundance of 0, and a
 maximum abundance of 1.
@@ -603,7 +611,8 @@ temperature. As the distribution probability decays away from the mean
 abundance is below 0.1, we drive that cell to extinction.
 
 Let’s look at an example where the environmental temperature is 21 C,
-the thermal optimum is 20 C, and the standard deviation is 1 C.
+the thermal optimum is 20 C, and the standard deviation is 1 C. The
+horizontal dashed line is the 0.1 extinction threshold.
 
 ![](readme_files/figure-commonmark/unnamed-chunk-18-1.png)
 
@@ -675,20 +684,21 @@ apply_ecology <- function(abundance, traits, local_environment, config) {
 }
 ```
 
-And that’s it! Please have a look at the full file:
-`./inputs/configuration_file.R` to see the full layout.
+And that’s it! Please have a look at the configuration file itself to
+see the full layout: `./inputs/configuration_file.R`.
 
-> If you have hawk-like coding reading eyes, you might have noticed the
+> If you have hawk-like code-reading eyes, you might have noticed the
 > `browser()` function hashed out at the start of each function.
-> Debugging the config can be a nightmare, but the `browser()` function
-> is there for us all.
+> Debugging the config can be a nightmare, the `browser()` function will
+> help!
 
 ## 3. Run the simulation
 
 We finally have our configuration file, landscapes, and distance
-matrices, and are ready run our simulation. This is done using the
-`run_smulation()` function, which we can just do in the console. This
-implementation shouldn’t be too heavy - give it a go yourself!
+matrices, and are ready to run our simulation. This is done using the
+`gen3sis::run_smulation()` function, which we can run in the console.
+Our current implementation shouldn’t be too heavy - give it a go
+yourself!
 
 ``` r
 run_simulation(
@@ -703,8 +713,8 @@ run_simulation(
 
 And that’s the bulk of it. Once you have your outputs, it’s really up to
 the user to decide what they’d like to do with them. For fun, I’ve
-continued a bit below with a quick look at the outputs we get from our
-practice simulation.
+continued a bit below by having a quick look at the outputs we get from
+our practice simulation.
 
 > This is just the beginning - most users run batches of gen3sis
 > simulations. This can be done by building a configuration file
@@ -837,12 +847,17 @@ spatial patterns - let’s have a look at species richness pattern at
 particular points in our simulation’s history.
 
 It looks like *Pisces pacificus* manages to colonise the Atlantic
-through a high depth tolerance, but can’t ride out the harsh temperature
-fluctuations of the interglacials.
+through its high depth tolerance, but can’t ride out the harsh
+temperature fluctuations of the interglacials.
 
-Conversely, *Pisces atlanticus* does a better job at surviving, and with
-a more fragmented distribution, radiates more strongly. Sadly, it’s not
-enough to save them in the end.
+Conversely, *Pisces atlanticus* does a better job at surviving the
+thermal stress, but with a more fragmented distribution due to its depth
+limitations, causing it to speciate more frequently. Sadly, this lineage
+also goes extinct.
+
+Play with the trait values in the configuration
+`gen3sis::create_ancestor_species()` function to see how their fates
+could be different.
 
 ``` r
 target_step <-
