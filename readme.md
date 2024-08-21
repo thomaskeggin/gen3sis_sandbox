@@ -19,8 +19,7 @@ code can both be directly accessed on
 
 Before reading through this tutorial, please check out Hagen et al.
 (2021), and familiarise yourself with the structure of the model, the
-general functions, and their order of operations. It saves me time
-retyping information here, and saves you time by not getting lost later!
+general functions, and their order of operations.
 
 Otherwise, perhaps these figures from the paper will jog your memory:
 
