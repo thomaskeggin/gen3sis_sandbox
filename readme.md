@@ -77,7 +77,7 @@ time step, we have a distance matrix for each one.
 
 > If you’re going to manually set up your landscape object and distance
 > matrices, make sure to follow the file structure and file naming
-> convention - check it out here: `./inputs/seascapes/`.
+> convention - check it out here: `./input/seascapes/`.
 
 Let’s have a look at these objects.
 
