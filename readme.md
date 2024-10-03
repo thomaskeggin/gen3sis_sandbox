@@ -419,37 +419,47 @@ create_ancestor_species <- function(landscape, config) {
   
   #browser()
   
+  seascape <- 
+    landscape$environment |> 
+    as_tibble(rownames = "cell")
+  
+  coords <-
+    landscape$coordinates |> 
+    as_tibble(rownames = "cell")
+  
+  seascape <-
+    left_join(seascape,coords,
+              by = "cell")
+  
   # define the starting cells for the two species --------
   # species starting in the Atlantic, limited by depth
   Pa_start_cells <-
-    landscapes$depth |>
-    as_tibble(rownames = "cell") |>
-    filter(x > -88,x < -84, y > 20, `7.83` > -1000) |>
+    seascape |>
+    filter(x > -88,x < -84, y > 20, depth > -1000) |>
     pull(cell)
   
   # species starting in the Pacific, not limited by depth
   Pp_start_cells <-
-    landscapes$depth |>
-    as_tibble(rownames = "cell") |>
+    seascape |>
     filter(x > -88,x < -84, y < 10) |>
     pull(cell)
   
   # Remember, the species object is just a list!
   species_object <- list()
   
-  # create the Atlantic species -----------------------------
+  # create the Atlantic species-----------------------------
   species_object[[1]] <-
     gen3sis::create_species(initial_cells = Pa_start_cells,
                             config = config)
   
-  # assign the mean thermal niche and standard deviation
+  # generate mean thermal niche and standard deviation
   species_object[[1]]$traits[,"thermal_optimum"] <-
     18
   
   species_object[[1]]$traits[,"thermal_standard_deviation"] <-
     0.3
   
-  # assign the minimum depth tolerance
+  # depth trait
   species_object[[1]]$traits[ , "depth_limit"]   <-
     -200
   
@@ -462,14 +472,14 @@ create_ancestor_species <- function(landscape, config) {
     gen3sis::create_species(initial_cells = Pp_start_cells,
                             config = config)
   
-  # assign the mean thermal niche and standard deviation
+  # generate mean thermal niche and standard deviation
   species_object[[2]]$traits[,"thermal_optimum"] <-
     21
   
   species_object[[2]]$traits[,"thermal_standard_deviation"] <-
     0.1
   
-  # assign the minimum depth tolerance (high!)
+  # depth trait
   species_object[[2]]$traits[ , "depth_limit"]   <-
     -10000
   
