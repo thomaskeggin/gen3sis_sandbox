@@ -41,21 +41,30 @@ create_ancestor_species <- function(landscape, config) {
   
   #browser()
   
+  seascape <- 
+    landscape$environment |> 
+    as_tibble(rownames = "cell")
+  
+  coords <-
+    landscape$coordinates |> 
+    as_tibble(rownames = "cell")
+  
+  seascape <-
+    left_join(seascape,coords,
+              by = "cell")
+  
   # define the starting cells for the two species --------
   # species starting in the Atlantic, limited by depth
   Pa_start_cells <-
-    landscapes$depth |>
-    as_tibble(rownames = "cell") |>
-    filter(x > -88,x < -84, y > 20, `7.83` > -1000) |>
+    seascape |>
+    filter(x > -88,x < -84, y > 20, depth > -1000) |>
     pull(cell)
   
   # species starting in the Pacific, not limited by depth
   Pp_start_cells <-
-    landscapes$depth |>
-    as_tibble(rownames = "cell") |>
+    seascape |>
     filter(x > -88,x < -84, y < 10) |>
     pull(cell)
-  
   
   # Remember, the species object is just a list!
   species_object <- list()
