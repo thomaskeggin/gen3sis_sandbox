@@ -19,10 +19,7 @@ code can both be directly accessed on
 
 Before reading through this tutorial, please check out Hagen et al.
 (2021), and familiarise yourself with the structure of the model, the
-general functions, and their order of operations. It saves me time
-retyping information here, and saves you time by not getting lost later!
-
-Otherwise, perhaps these figures from the paper will jog your memory:
+general functions, and their order of operations. Otherwise, perhaps these figures from the paper will jog your memory:
 
 Overview of the simulation framework:
 
@@ -80,7 +77,7 @@ time step, we have a distance matrix for each one.
 
 > If you’re going to manually set up your landscape object and distance
 > matrices, make sure to follow the file structure and file naming
-> convention - check it out here: `./inputs/seascapes/`.
+> convention - check it out here: `./input/seascapes/`.
 
 Let’s have a look at these objects.
 
