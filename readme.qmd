@@ -105,7 +105,7 @@ Our landscape object contains **sea surface temperature (SST)** and **depth** es
 
 The distance matrices define the geographical distance between every pair of marine cells. This allows us to control how species can disperse across the land(sea)scape. Since the landscape can be different at each time step, we have a distance matrix for each one.
 
-> If you're going to manually set up your landscape object and distance matrices, make sure to follow the file structure and file naming convention - check it out here: `./inputs/seascapes/`.
+> If you're going to manually set up your landscape object and distance matrices, make sure to follow the file structure and file naming convention - check it out here: `./input/seascapes/`.
 
 Let's have a look at these objects.
 
